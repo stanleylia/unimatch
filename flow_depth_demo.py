@@ -2,14 +2,17 @@ import cv2
 import numpy as np
 import torch
 import sys
-sys.path.append('/content/unimatch')
-from unimatch.unimatch import UniMatch
+import os
 
-# Import MiDaS modules
-sys.path.append('/content/unimatch/midas')
+# Add the correct paths
+sys.path.append('/content/unimatch')
+sys.path.append('/content/unimatch/MiDaS')  # Add this line
+
+from unimatch.unimatch import UniMatch
 from midas.model_loader import load_model
 import midas.transforms as transforms
 
+# Rest of the code remains the same
 def flow_to_image(flow):
     h, w = flow.shape[:2]
     hsv = np.zeros((h, w, 3), np.uint8)
@@ -83,19 +86,19 @@ def process_video(flow_model, depth_model, transform, input_video, output_video,
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+    
     # Load flow model
     flow_model = UniMatch(feature_channels=128, num_scales=2, upsample_factor=4, num_head=1, ffn_dim_expansion=4, num_transformer_layers=6, reg_refine=True).to(device)
     flow_model.load_state_dict(torch.load('pretrained/gmflow-scale2-regrefine6-kitti15-25b554d7.pth', map_location=device)['model'])
     flow_model.eval()
-
+    
     # Load depth model
     model_type = "midas_v21_small"
-    model_weights = "midas/midas_v21_small-70d6b9c8.pt"
+    model_weights = "MiDaS/weights/midas_v21_small-70d6b9c8.pt"  # Update this path
     
     depth_model, transform, net_w, net_h = load_model(model_weights, model_type, device, False)
     depth_model.eval()
-
+    
     process_video(flow_model, depth_model, transform,
                   'demo/kitti.mp4', 
                   'output/kitti/kitti_flow_depth_accurate.mp4',
@@ -105,7 +108,7 @@ def main():
                   corr_radius_list=[-1, 4], 
                   prop_radius_list=[-1, 1], 
                   num_reg_refine=6)
-
+    
     print("处理完成。输出视频保存在: output/kitti/kitti_flow_depth_accurate.mp4")
 
 if __name__ == "__main__":
