@@ -6,7 +6,7 @@ import os
 
 # Add the correct paths
 sys.path.append('/content/unimatch')
-sys.path.append('/content/unimatch/midas')  # Updated path
+sys.path.append('/content/unimatch/MiDaS/midas')  # Updated path
 
 from unimatch.unimatch import UniMatch
 from midas.model_loader import load_model
