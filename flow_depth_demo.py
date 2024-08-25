@@ -2,7 +2,8 @@ import cv2
 import numpy as np
 import torch
 from unimatch.unimatch import UniMatch
-from midas.model_loader import load_model
+from midas.model_loader import default_models, load_model
+import midas.transforms as transforms
 
 def flow_to_image(flow):
     h, w = flow.shape[:2]
@@ -14,21 +15,20 @@ def flow_to_image(flow):
     rgb = cv2.cvtColor(hsv, cv2.COLOR_HSV2RGB)
     return rgb
 
-def estimate_depth(image, depth_model, device):
+def estimate_depth(image, depth_model, transform, device):
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    image = torch.from_numpy(image).to(device).float() / 255.0
-    image = image.permute(2, 0, 1).unsqueeze(0)
+    input_batch = transform({"image": image}).to(device)
     
     with torch.no_grad():
-        depth = depth_model.forward(image)
-        depth = torch.nn.functional.interpolate(
-            depth.unsqueeze(1),
-            size=image.shape[2:],
+        prediction = depth_model(input_batch)
+        prediction = torch.nn.functional.interpolate(
+            prediction.unsqueeze(1),
+            size=image.shape[:2],
             mode="bicubic",
             align_corners=False,
         ).squeeze()
-
-    depth = depth.cpu().numpy()
+    
+    depth = prediction.cpu().numpy()
     return depth
 
 def visualize_flow_and_depth(img, flow, depth):
@@ -42,7 +42,7 @@ def visualize_flow_and_depth(img, flow, depth):
     
     return result
 
-def process_video(flow_model, depth_model, input_video, output_video, device, **kwargs):
+def process_video(flow_model, depth_model, transform, input_video, output_video, device, **kwargs):
     cap = cv2.VideoCapture(input_video)
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     out = None
@@ -63,7 +63,7 @@ def process_video(flow_model, depth_model, input_video, output_video, device, **
             results_dict = flow_model(img1, img2, **kwargs)
         flow = results_dict['flow_preds'][-1][0].permute(1, 2, 0).cpu().numpy()
         
-        depth = estimate_depth(frame1, depth_model, device)
+        depth = estimate_depth(frame1, depth_model, transform, device)
         
         vis = visualize_flow_and_depth(frame1, flow, depth)
         
@@ -79,15 +79,19 @@ def process_video(flow_model, depth_model, input_video, output_video, device, **
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    # Load flow model
     flow_model = UniMatch(feature_channels=128, num_scales=2, upsample_factor=4, num_head=1, ffn_dim_expansion=4, num_transformer_layers=6, reg_refine=True).to(device)
-    flow_model.load_state_dict(torch.load('pretrained/gmflow-scale2-regrefine6-kitti15-25b554d7.pth')['model'])
+    flow_model.load_state_dict(torch.load('pretrained/gmflow-scale2-regrefine6-kitti15-25b554d7.pth', map_location=device)['model'])
     flow_model.eval()
 
-    depth_model = load_model("MiDaS_small")
-    depth_model.to(device)
+    # Load depth model
+    model_type = "midas_v21_small"
+    model_weights = "midas/midas_v21_small-70d6b9c8.pt"
+    
+    depth_model, transform, net_w, net_h = load_model(model_weights, model_type, device, False, None)
     depth_model.eval()
 
-    process_video(flow_model, depth_model,
+    process_video(flow_model, depth_model, transform,
                   'demo/kitti.mp4', 
                   'output/kitti/kitti_flow_depth_accurate.mp4',
                   device,
