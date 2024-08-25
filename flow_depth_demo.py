@@ -1,8 +1,13 @@
 import cv2
 import numpy as np
 import torch
+import sys
+sys.path.append('/content/unimatch')
 from unimatch.unimatch import UniMatch
-from midas.model_loader import default_models, load_model
+
+# Import MiDaS modules
+sys.path.append('/content/unimatch/midas')
+from midas.model_loader import load_model
 import midas.transforms as transforms
 
 def flow_to_image(flow):
@@ -88,7 +93,7 @@ def main():
     model_type = "midas_v21_small"
     model_weights = "midas/midas_v21_small-70d6b9c8.pt"
     
-    depth_model, transform, net_w, net_h = load_model(model_weights, model_type, device, False, None)
+    depth_model, transform, net_w, net_h = load_model(model_weights, model_type, device, False)
     depth_model.eval()
 
     process_video(flow_model, depth_model, transform,
