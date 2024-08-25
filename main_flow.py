@@ -19,7 +19,6 @@ from utils.logger import Logger
 from utils import misc
 from utils.dist_utils import get_dist_info, init_dist, setup_for_distributed
 
-
 def get_args_parser():
     parser = argparse.ArgumentParser()
 
@@ -132,7 +131,6 @@ def get_args_parser():
     parser.add_argument('--debug', action='store_true')
 
     return parser
-
 
 def main(args):
     print_info = not args.eval and not args.submission and args.inference_dir is None and args.inference_video is None
@@ -599,7 +597,6 @@ def main(args):
                 return
 
         epoch += 1
-
 
 if __name__ == '__main__':
     parser = get_args_parser()
