@@ -6,13 +6,12 @@ import os
 
 # Add the correct paths
 sys.path.append('/content/unimatch')
-sys.path.append('/content/unimatch/MiDaS')  # Add this line
+sys.path.append('/content/unimatch/midas')  # Updated path
 
 from unimatch.unimatch import UniMatch
 from midas.model_loader import load_model
 import midas.transforms as transforms
 
-# Rest of the code remains the same
 def flow_to_image(flow):
     h, w = flow.shape[:2]
     hsv = np.zeros((h, w, 3), np.uint8)
@@ -94,9 +93,26 @@ def main():
     
     # Load depth model
     model_type = "midas_v21_small"
-    model_weights = "MiDaS/weights/midas_v21_small-70d6b9c8.pt"  # Update this path
+    model_weights = "midas/midas_v21_small-70d6b9c8.pt"  # Updated path
     
-    depth_model, transform, net_w, net_h = load_model(model_weights, model_type, device, False)
+    # Updated load_model call
+    depth_model = load_model(model_type, model_weights, device=device)
+    transform = transforms.Compose(
+        [
+            transforms.Resize(
+                384,
+                384,
+                resize_target=None,
+                keep_aspect_ratio=True,
+                ensure_multiple_of=32,
+                resize_method="upper_bound",
+                image_interpolation_method=cv2.INTER_CUBIC,
+            ),
+            transforms.NormalizeImage(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            transforms.PrepareForNet(),
+        ]
+    )
+    
     depth_model.eval()
     
     process_video(flow_model, depth_model, transform,
